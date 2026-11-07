@@ -61,7 +61,7 @@
   main { max-width: 820px; margin: 0 auto; padding: 16px 16px 80px; }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
   select, input[type=search] {
-    font: inherit; font-size: 15px; color: var(--text); background: var(--card);
+    font: inherit; font-size: 16px; color: var(--text); background: var(--card);
     border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
   }
   input[type=search] { flex: 1; min-width: 160px; }
@@ -150,7 +150,7 @@
   <section id="exam" hidden>
     <div id="exam-intro" class="intro">
       <p>從全部題目中隨機抽出 <b id="exam-size">25</b> 題，作答完按「交卷」看成績與解答。</p>
-      <button class="btn primary" id="start-exam">開始模擬考</button>
+      <button class="btn primary" id="start-exam" disabled>開始模擬考</button>
     </div>
     <div id="exam-score" class="score" hidden></div>
     <div id="exam-list"></div>
@@ -364,6 +364,7 @@ fetch(encodeURI(SOURCE))
     }
     document.getElementById('exam-size').textContent = Math.min(EXAM_SIZE, questions.length);
     renderBrowse();
+    document.getElementById('start-exam').disabled = questions.length === 0;
   })
   .catch(err => {
     document.getElementById('browse-list').innerHTML =
