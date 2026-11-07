@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>民防役題庫練習</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1d2330;
+    --muted: #667085;
+    --border: #e1e4ea;
+    --accent: #2563eb;
+    --accent-soft: #e8efff;
+    --ok: #15803d;
+    --ok-soft: #e6f6ec;
+    --bad: #b42318;
+    --bad-soft: #fdecea;
+    --warn: #a15c07;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b;
+      --card: #1b2029;
+      --text: #e6e9ef;
+      --muted: #98a2b3;
+      --border: #2c3340;
+      --accent: #6b9bff;
+      --accent-soft: #1f2a44;
+      --ok: #4ade80;
+      --ok-soft: #15301f;
+      --bad: #f87171;
+      --bad-soft: #3a1c1c;
+      --warn: #fbbf24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+  .bar {
+    max-width: 820px; margin: 0 auto; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  h1 { font-size: 18px; margin: 0; flex: 1; white-space: nowrap; }
+  .tabs { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
+  .tabs button {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 6px 14px; border-radius: 7px; font: inherit; font-size: 15px; cursor: pointer;
+  }
+  .tabs button.active { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  main { max-width: 820px; margin: 0 auto; padding: 16px 16px 80px; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  select, input[type=search] {
+    font: inherit; font-size: 15px; color: var(--text); background: var(--card);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+  }
+  input[type=search] { flex: 1; min-width: 160px; }
+  label.chk { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--muted); cursor: pointer; }
+  .btn {
+    font: inherit; font-size: 15px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    padding: 8px 16px; border-radius: 8px;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .section-title { font-size: 17px; margin: 28px 0 4px; }
+  .section-note { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  .q {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .q-meta { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .q-text { margin: 0 0 10px; }
+  .opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .opt {
+    display: flex; gap: 8px; align-items: flex-start;
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }
+  .opt .k { font-weight: 600; flex: none; }
+  .opts.tf { grid-template-columns: 1fr 1fr; }
+  .opts.tf .opt { justify-content: center; font-size: 18px; font-weight: 600; }
+  button.opt { font: inherit; color: inherit; background: transparent; text-align: left; cursor: pointer; width: 100%; }
+  button.opt:hover:not(:disabled) { border-color: var(--accent); }
+  button.opt:disabled { cursor: default; }
+  .opt.picked { border-color: var(--accent); background: var(--accent-soft); }
+  .opt.correct { border-color: var(--ok); background: var(--ok-soft); }
+  .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+  .answer { margin-top: 10px; font-size: 15px; color: var(--ok); font-weight: 600; }
+  .answer .note { color: var(--warn); font-weight: 400; font-size: 14px; }
+  .hide-answers .answer { display: none; }
+  .hide-answers .opt.correct { border-color: var(--border); background: transparent; }
+  .q.result-ok { border-left: 4px solid var(--ok); }
+  .q.result-bad { border-left: 4px solid var(--bad); }
+  .tag { font-size: 13px; font-weight: 600; margin-left: 6px; }
+  .tag.ok { color: var(--ok); } .tag.bad { color: var(--bad); }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .intro { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+  .intro p { color: var(--muted); margin: 0 0 16px; }
+  .score {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px; text-align: center;
+  }
+  .score .big { font-size: 40px; font-weight: 700; line-height: 1.2; }
+  .score .sub { color: var(--muted); margin: 4px 0 14px; }
+  .score .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .footer-bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--card); border-top: 1px solid var(--border);
+  }
+  .footer-bar .inner {
+    max-width: 820px; margin: 0 auto; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .progress { color: var(--muted); font-size: 15px; }
+  .error { color: var(--bad); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>民防役題庫練習</h1>
+    <div class="tabs" role="tablist">
+      <button data-view="browse" class="active">題庫</button>
+      <button data-view="exam">模擬考</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="browse">
+    <div class="controls">
+      <select id="cat-filter"><option value="">全部分類</option></select>
+      <input type="search" id="search" placeholder="搜尋題目或選項">
+      <label class="chk"><input type="checkbox" id="show-ans" checked> 顯示答案</label>
+    </div>
+    <div id="browse-list"></div>
+  </section>
+
+  <section id="exam" hidden>
+    <div id="exam-intro" class="intro">
+      <p>從全部題目中隨機抽出 <b id="exam-size">25</b> 題，作答完按「交卷」看成績與解答。</p>
+      <button class="btn primary" id="start-exam">開始模擬考</button>
+    </div>
+    <div id="exam-score" class="score" hidden></div>
+    <div id="exam-list"></div>
+  </section>
+</main>
+
+<div class="footer-bar" id="exam-footer" hidden>
+  <div class="inner">
+    <span class="progress" id="exam-progress"></span>
+    <button class="btn primary" id="submit-exam">交卷</button>
+  </div>
+</div>
+
+<script>
+const SOURCE = '民防役專業訓練_完整題庫.md';
+const EXAM_SIZE = 25;
+
+let questions = [];
+let sections = [];
+
+function parse(md) {
+  const qs = [], secs = [];
+  let sec = null, type = '', cur = null;
+  for (const raw of md.split(/\r?\n/)) {
+    const line = raw.trim();
+    let m;
+    if ((m = line.match(/^##\s+(.+)$/)) && !line.startsWith('###')) {
+      sec = { title: m[1].replace(/（\d+\s*題）$/, '').trim(), note: '' };
+      secs.push(sec); type = ''; cur = null;
+    } else if ((m = line.match(/^###\s+(.+)$/))) {
+      type = m[1].replace(/（.*?）/g, '').trim();
+    } else if (sec && !cur && !type && (m = line.match(/^>\s*(.+)$/))) {
+      sec.note += m[1];
+    } else if ((m = line.match(/^\*\*(\d+)\.\*\*\s*(.+)$/))) {
+      cur = { id: qs.length, section: sec.title, type, num: +m[1], text: m[2], options: [], answer: '', note: '' };
+      qs.push(cur);
+    } else if (cur && (m = line.match(/^-\s*\(([A-Z])\)\s*(.+)$/))) {
+      cur.options.push({ key: m[1], text: m[2] });
+    } else if (cur && (m = line.match(/^\*\*答案：\s*([A-ZOX])(.*)\*\*$/))) {
+      cur.answer = m[1];
+      cur.note = m[2].replace(/^[（(]|[）)]$/g, '').trim();
+    }
+  }
+  for (const q of qs) {
+    q.tf = q.options.length === 0;
+    if (q.tf) q.options = [{ key: 'O', text: '' }, { key: 'X', text: '' }];
+  }
+  return { qs, secs };
+}
+
+function esc(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function typeLabel(q) { return q.tf ? '是非題' : (q.type || '選擇題'); }
+
+function optionInner(q, o) {
+  return q.tf ? esc(o.key) : `<span class="k">(${esc(o.key)})</span><span>${esc(o.text)}</span>`;
+}
+
+function answerLine(q) {
+  return `<div class="answer">答案：${esc(q.answer)}${q.note ? ` <span class="note">（${esc(q.note)}）</span>` : ''}</div>`;
+}
+
+/* ---------- 題庫瀏覽 ---------- */
+
+function renderBrowse() {
+  const cat = document.getElementById('cat-filter').value;
+  const kw = document.getElementById('search').value.trim().toLowerCase();
+  const list = document.getElementById('browse-list');
+  let html = '';
+  for (const s of sections) {
+    if (cat && s.title !== cat) continue;
+    const items = questions.filter(q => q.section === s.title && (!kw ||
+      q.text.toLowerCase().includes(kw) || q.options.some(o => o.text.toLowerCase().includes(kw))));
+    if (!items.length) continue;
+    html += `<h2 class="section-title">${esc(s.title)}</h2>`;
+    if (s.note) html += `<p class="section-note">${esc(s.note)}</p>`;
+    for (const q of items) {
+      html += `<div class="q">
+        <div class="q-meta">${esc(typeLabel(q))} 第 ${q.num} 題</div>
+        <p class="q-text">${esc(q.text)}</p>
+        <ul class="opts${q.tf ? ' tf' : ''}">
+          ${q.options.map(o => `<li class="opt${o.key === q.answer ? ' correct' : ''}">${optionInner(q, o)}</li>`).join('')}
+        </ul>
+        ${answerLine(q)}
+      </div>`;
+    }
+  }
+  list.innerHTML = html || '<p class="empty">找不到符合的題目</p>';
+}
+
+/* ---------- 模擬考 ---------- */
+
+let exam = null; // { items: [q], picks: {}, submitted: bool, wrongOnly: bool }
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startExam() {
+  exam = { items: shuffle(questions).slice(0, EXAM_SIZE), picks: {}, submitted: false, wrongOnly: false };
+  document.getElementById('exam-intro').hidden = true;
+  document.getElementById('exam-score').hidden = true;
+  document.getElementById('exam-footer').hidden = false;
+  renderExam();
+  window.scrollTo(0, 0);
+}
+
+function renderExam() {
+  const list = document.getElementById('exam-list');
+  if (!exam) { list.innerHTML = ''; return; }
+  const done = exam.submitted;
+  list.innerHTML = exam.items.map((q, i) => {
+    const pick = exam.picks[q.id];
+    const ok = pick === q.answer;
+    if (done && exam.wrongOnly && ok) return '';
+    const opts = q.options.map(o => {
+      let cls = 'opt';
+      if (done) {
+        if (o.key === q.answer) cls += ' correct';
+        else if (o.key === pick) cls += ' wrong';
+      } else if (o.key === pick) cls += ' picked';
+      return `<li><button class="${cls}" data-q="${q.id}" data-k="${esc(o.key)}"${done ? ' disabled' : ''}>${optionInner(q, o)}</button></li>`;
+    }).join('');
+    const tag = done ? (ok ? '<span class="tag ok">✓ 答對</span>' : `<span class="tag bad">✗ ${pick ? '答錯' : '未作答'}</span>`) : '';
+    return `<div class="q${done ? (ok ? ' result-ok' : ' result-bad') : ''}">
+      <div class="q-meta">第 ${i + 1} 題 · ${esc(q.section)} · ${esc(typeLabel(q))}${tag}</div>
+      <p class="q-text">${esc(q.text)}</p>
+      <ul class="opts${q.tf ? ' tf' : ''}">${opts}</ul>
+      ${done ? answerLine(q) : ''}
+    </div>`;
+  }).join('');
+  updateProgress();
+}
+
+function updateProgress() {
+  const n = Object.keys(exam.picks).length;
+  document.getElementById('exam-progress').textContent = `已作答 ${n} / ${exam.items.length}`;
+}
+
+function submitExam() {
+  const unanswered = exam.items.length - Object.keys(exam.picks).length;
+  if (unanswered > 0 && !confirm(`還有 ${unanswered} 題未作答，確定要交卷嗎？`)) return;
+  exam.submitted = true;
+  const correct = exam.items.filter(q => exam.picks[q.id] === q.answer).length;
+  const total = exam.items.length;
+  const score = Math.round(correct / total * 100);
+  const box = document.getElementById('exam-score');
+  box.innerHTML = `<div class="big">${score} 分</div>
+    <div class="sub">答對 ${correct} / ${total} 題</div>
+    <div class="row">
+      <button class="btn" id="toggle-wrong">${correct === total ? '全部答對！' : '只看錯題'}</button>
+      <button class="btn primary" id="restart-exam">再考一次</button>
+    </div>`;
+  box.hidden = false;
+  const tw = document.getElementById('toggle-wrong');
+  tw.disabled = correct === total;
+  tw.onclick = () => {
+    exam.wrongOnly = !exam.wrongOnly;
+    tw.textContent = exam.wrongOnly ? '顯示全部' : '只看錯題';
+    renderExam();
+  };
+  document.getElementById('restart-exam').onclick = startExam;
+  document.getElementById('exam-footer').hidden = true;
+  renderExam();
+  window.scrollTo(0, 0);
+}
+
+document.getElementById('exam-list').addEventListener('click', e => {
+  const b = e.target.closest('button.opt');
+  if (!b || !exam || exam.submitted) return;
+  const id = +b.dataset.q;
+  exam.picks[id] = b.dataset.k;
+  b.closest('.opts').querySelectorAll('button.opt').forEach(x => x.classList.toggle('picked', x === b));
+  updateProgress();
+});
+
+/* ---------- 切換分頁 ---------- */
+
+function showView(view) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.getElementById('browse').hidden = view !== 'browse';
+  document.getElementById('exam').hidden = view !== 'exam';
+  document.getElementById('exam-footer').hidden = !(view === 'exam' && exam && !exam.submitted);
+}
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+document.getElementById('cat-filter').addEventListener('change', renderBrowse);
+document.getElementById('search').addEventListener('input', renderBrowse);
+document.getElementById('show-ans').addEventListener('change', e =>
+  document.getElementById('browse-list').classList.toggle('hide-answers', !e.target.checked));
+document.getElementById('start-exam').addEventListener('click', startExam);
+document.getElementById('submit-exam').addEventListener('click', submitExam);
+
+/* ---------- 載入題庫 ---------- */
+
+fetch(encodeURI(SOURCE))
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+  .then(md => {
+    ({ qs: questions, secs: sections } = parse(md));
+    const sel = document.getElementById('cat-filter');
+    for (const s of sections) {
+      const n = questions.filter(q => q.section === s.title).length;
+      sel.insertAdjacentHTML('beforeend', `<option value="${esc(s.title)}">${esc(s.title)}（${n}）</option>`);
+    }
+    document.getElementById('exam-size').textContent = Math.min(EXAM_SIZE, questions.length);
+    renderBrowse();
+  })
+  .catch(err => {
+    document.getElementById('browse-list').innerHTML =
+      `<p class="empty error">無法載入題庫（${esc(String(err.message || err))}）。若是直接開啟本機檔案，請改用本機伺服器或 GitHub Pages 瀏覽。</p>`;
+  });
+</script>
+</body>
+</html>
