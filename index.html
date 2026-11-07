@@ -103,6 +103,9 @@
   .answer .note { color: var(--warn); font-weight: 400; font-size: 14px; }
   .basis { margin-top: 6px; font-size: 14px; color: var(--muted); }
   .basis b { color: var(--text); }
+  .basis-item { margin-top: 4px; display: flex; gap: 6px; }
+  .basis-item .k { flex: none; width: 2.4em; font-weight: 600; color: var(--text); }
+  .basis-item .k.ok { color: var(--ok); }
   .hide-answers .answer, .hide-answers .basis { display: none; }
   .hide-answers .opt.correct { border-color: var(--border); background: transparent; }
   .q.result-ok { border-left: 4px solid var(--ok); }
@@ -191,12 +194,12 @@ function parse(md) {
     } else if (sec && !cur && !type && (m = line.match(/^>\s*(.+)$/))) {
       sec.note += m[1];
     } else if ((m = line.match(/^\*\*(\d+)\.\*\*\s*(.+)$/))) {
-      cur = { id: qs.length, section: sec.title, type, num: +m[1], text: m[2], options: [], answer: '', note: '', basis: '' };
+      cur = { id: qs.length, section: sec.title, type, num: +m[1], text: m[2], options: [], answer: '', note: '', basis: [] };
       qs.push(cur);
     } else if (cur && (m = line.match(/^-\s*\(([A-Z])\)\s*(.+)$/))) {
       cur.options.push({ key: m[1], text: m[2] });
-    } else if (cur && (m = line.match(/^\*\*依據：\*\*\s*(.+)$/))) {
-      cur.basis = m[1];
+    } else if (cur && (m = line.match(/^\*\*依據(?:\s*\(([A-Z])\))?：\*\*\s*(.+)$/))) {
+      cur.basis.push({ key: m[1] || '', text: m[2] });
     } else if (cur && (m = line.match(/^\*\*答案：\s*([A-ZOX])(.*)\*\*$/))) {
       cur.answer = m[1];
       cur.note = m[2].replace(/^[（(]|[）)]$/g, '').trim();
@@ -223,7 +226,14 @@ function bold(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); }
 
 function answerLine(q) {
   return `<div class="answer">答案：${esc(q.answer)}${q.note ? ` <span class="note">（${esc(q.note)}）</span>` : ''}</div>`
-    + (q.basis ? `<div class="basis">依據：${bold(q.basis)}</div>` : '');
+    + basisBlock(q);
+}
+
+function basisBlock(q) {
+  if (!q.basis.length) return '';
+  if (q.basis.length === 1 && !q.basis[0].key) return `<div class="basis">依據：${bold(q.basis[0].text)}</div>`;
+  return `<div class="basis">依據：${q.basis.map(b =>
+    `<div class="basis-item"><span class="k${b.key === q.answer ? ' ok' : ''}">(${esc(b.key)})</span><span>${bold(b.text)}</span></div>`).join('')}</div>`;
 }
 
 /* ---------- 題庫瀏覽 ---------- */
