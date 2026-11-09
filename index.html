@@ -132,6 +132,34 @@
   }
   .progress { color: var(--muted); font-size: 15px; }
   .error { color: var(--bad); }
+  .btn.block { width: 100%; }
+  .btn.small { padding: 5px 12px; font-size: 14px; }
+  .setup { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .setup-group { margin-bottom: 18px; }
+  .setup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .setup-head h3, .setup-group > h3 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  .setup-head h3 { margin: 0; }
+  .linkbtn { border: 0; background: none; color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; padding: 0; }
+  .chk-list { display: grid; gap: 6px; }
+  .chk-list.two { grid-template-columns: 1fr 1fr; }
+  .chk-list label {
+    display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+  }
+  .chk-list label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .chk-list input { width: 18px; height: 18px; margin: 3px 0 0; flex: none; accent-color: var(--accent); }
+  .chk-list .cnt { color: var(--muted); font-size: 14px; margin-left: auto; white-space: nowrap; }
+  .chk-list small { display: block; color: var(--muted); font-size: 13px; line-height: 1.4; }
+  .resume {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 18px;
+  }
+  .resume .info { font-size: 14px; }
+  .run-head { margin-bottom: 10px; }
+  .verdict { margin-top: 12px; font-size: 17px; font-weight: 700; }
+  .verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); }
+  @media (max-width: 420px) { .chk-list.two { grid-template-columns: 1fr; } }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -141,6 +169,7 @@
     <h1>民防役題庫練習</h1>
     <div class="tabs" role="tablist">
       <button data-view="browse" class="active">題庫</button>
+      <button data-view="practice">練習</button>
       <button data-view="exam">模擬考</button>
     </div>
   </div>
@@ -154,6 +183,32 @@
 <main>
   <section id="browse">
     <div id="browse-list"></div>
+  </section>
+
+  <section id="practice" hidden>
+    <div id="practice-setup" class="setup">
+      <div id="practice-resume" class="resume" hidden>
+        <div class="info">上次進度：<span id="resume-info"></span></div>
+        <button class="btn primary small" id="resume-practice">繼續</button>
+      </div>
+      <div class="setup-group">
+        <div class="setup-head"><h3>題目分類</h3><button class="linkbtn" id="toggle-cats">全不選</button></div>
+        <div class="chk-list" id="practice-cats"></div>
+      </div>
+      <div class="setup-group">
+        <h3>出題方式</h3>
+        <div class="chk-list two">
+          <label><input type="radio" name="pmode" value="seq" checked><span><b>不重複</b><small>每題只出一次，顯示進度，關掉網頁也會記住</small></span></label>
+          <label><input type="radio" name="pmode" value="rand"><span><b>隨機（會重複）</b><small>每次隨機抽一題，可以無限練習</small></span></label>
+        </div>
+      </div>
+      <button class="btn primary block" id="start-practice" disabled>開始練習（共 <span id="pool-n">0</span> 題）</button>
+    </div>
+    <div id="practice-run" hidden>
+      <div class="run-head"><button class="btn small" id="quit-practice">← 結束練習</button></div>
+      <div id="practice-card"></div>
+    </div>
+    <div id="practice-done" class="score" hidden></div>
   </section>
 
   <section id="exam" hidden>
@@ -170,6 +225,13 @@
   <div class="inner">
     <span class="progress" id="exam-progress"></span>
     <button class="btn primary" id="submit-exam">交卷</button>
+  </div>
+</div>
+
+<div class="footer-bar" id="practice-footer" hidden>
+  <div class="inner">
+    <span class="progress" id="practice-progress"></span>
+    <button class="btn primary" id="next-q" disabled>下一題</button>
   </div>
 </div>
 
@@ -359,12 +421,184 @@ document.getElementById('exam-list').addEventListener('click', e => {
   updateProgress();
 });
 
+/* ---------- 逐題練習 ---------- */
+
+const STORE_KEY = 'apb-practice-v1';
+let byKey = new Map();
+let practice = null; // { mode: 'seq'|'rand', cats, pool: [key], pos, cur, pick, answered, correct, wrong: [key], done }
+
+function qkey(q) { return `${q.section}|${typeLabel(q)}|${q.num}`; }
+function selectedCats() { return [...document.querySelectorAll('#practice-cats input:checked')].map(i => i.value); }
+function poolKeys(cats) { return questions.filter(q => cats.includes(q.section)).map(qkey); }
+
+function saveProgress() {
+  if (!practice || practice.mode !== 'seq' || practice.done) return;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(practice)); } catch (e) {}
+}
+function clearProgress() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} }
+function loadProgress() {
+  let p;
+  try { p = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { return null; }
+  if (!p || p.mode !== 'seq' || !Array.isArray(p.pool)) return null;
+  // 題庫若有變動，略過已不存在的題目
+  const before = p.pool.length;
+  p.pool = p.pool.filter(k => byKey.has(k));
+  p.wrong = (p.wrong || []).filter(k => byKey.has(k));
+  if (p.pool.length !== before) p.pos = Math.max(0, p.pool.indexOf(p.cur));
+  if (p.pos >= p.pool.length) return null;
+  if (p.pool[p.pos] !== p.cur) { p.cur = p.pool[p.pos]; p.pick = null; }
+  return p;
+}
+
+function updatePool() {
+  const cats = selectedCats();
+  const n = poolKeys(cats).length;
+  document.getElementById('pool-n').textContent = n;
+  document.getElementById('start-practice').disabled = n === 0;
+  document.getElementById('toggle-cats').textContent = cats.length === sections.length ? '全不選' : '全選';
+}
+
+function randomKey(p) {
+  let k;
+  do { k = p.pool[Math.floor(Math.random() * p.pool.length)]; } while (p.pool.length > 1 && k === p.cur);
+  return k;
+}
+
+function startPractice(mode, cats, keys) {
+  if (!keys && mode === 'seq' && loadProgress() && !confirm('開始新的不重複練習會清除上次的進度，確定嗎？')) return;
+  const pool = keys || (mode === 'seq' ? shuffle(poolKeys(cats)) : poolKeys(cats));
+  practice = { mode, cats, pool, pos: 0, cur: null, pick: null, answered: 0, correct: 0, wrong: [], done: false };
+  practice.cur = mode === 'seq' ? pool[0] : randomKey(practice);
+  saveProgress();
+  renderPractice();
+  window.scrollTo(0, 0);
+}
+
+function nextQuestion() {
+  const p = practice;
+  if (!p || !p.pick) return;
+  if (p.mode === 'seq') {
+    p.pos++;
+    if (p.pos >= p.pool.length) return finishPractice();
+    p.cur = p.pool[p.pos];
+  } else {
+    p.cur = randomKey(p);
+  }
+  p.pick = null;
+  saveProgress();
+  renderPractice();
+  window.scrollTo(0, 0);
+}
+
+function finishPractice() {
+  practice.done = true;
+  clearProgress();
+  renderPractice();
+  window.scrollTo(0, 0);
+}
+
+function quitPractice() {
+  practice = null;
+  renderPractice();
+  window.scrollTo(0, 0);
+}
+
+function renderSetup() {
+  const saved = loadProgress();
+  document.getElementById('practice-resume').hidden = !saved;
+  if (saved) document.getElementById('resume-info').textContent =
+    `第 ${saved.pos + 1} / ${saved.pool.length} 題，答對 ${saved.correct} / ${saved.answered}`;
+}
+
+function renderPractice() {
+  const p = practice;
+  const running = !!p && !p.done;
+  document.getElementById('practice-setup').hidden = !!p;
+  document.getElementById('practice-run').hidden = !running;
+  document.getElementById('practice-done').hidden = !(p && p.done);
+  document.getElementById('practice-footer').hidden = !running || document.getElementById('practice').hidden;
+  if (!p) return renderSetup();
+
+  if (p.done) {
+    const total = p.answered, pct = total ? Math.round(p.correct / total * 100) : 0;
+    const box = document.getElementById('practice-done');
+    box.innerHTML = `<div class="big">${pct}%</div>
+      <div class="sub">答對 ${p.correct} / ${total} 題</div>
+      <div class="row">
+        ${p.wrong.length ? `<button class="btn primary" id="retry-wrong">只重練錯題（${p.wrong.length} 題）</button>` : ''}
+        <button class="btn${p.wrong.length ? '' : ' primary'}" id="restart-practice">重新開始</button>
+        <button class="btn" id="back-setup">回到設定</button>
+      </div>`;
+    const rw = document.getElementById('retry-wrong');
+    if (rw) rw.onclick = () => startPractice('seq', p.cats, shuffle(p.wrong));
+    document.getElementById('restart-practice').onclick = () => startPractice('seq', p.cats, shuffle(poolKeys(p.cats)));
+    document.getElementById('back-setup').onclick = quitPractice;
+    return;
+  }
+
+  const q = byKey.get(p.cur);
+  const pick = p.pick;
+  const opts = q.options.map(o => {
+    let cls = 'opt';
+    if (pick) {
+      if (o.key === q.answer) cls += ' correct';
+      else if (o.key === pick) cls += ' wrong';
+    }
+    return `<li><button class="${cls}" data-k="${esc(o.key)}"${pick ? ' disabled' : ''}>${optionInner(q, o)}</button></li>`;
+  }).join('');
+  const ok = pick === q.answer;
+  document.getElementById('practice-card').innerHTML = `<div class="q${pick ? (ok ? ' result-ok' : ' result-bad') : ''}">
+    <div class="q-meta">${esc(q.section)} · ${esc(typeLabel(q))} 第 ${q.num} 題</div>
+    <p class="q-text">${esc(q.text)}</p>
+    <ul class="opts${q.tf ? ' tf' : ''}">${opts}</ul>
+    ${pick ? `<div class="verdict ${ok ? 'ok">✓ 答對了！' : 'bad">✗ 答錯了'}</div>${answerLine(q)}` : ''}
+  </div>`;
+
+  const stat = `答對 ${p.correct} / ${p.answered}`;
+  document.getElementById('practice-progress').textContent =
+    p.mode === 'seq' ? `第 ${p.pos + 1} / ${p.pool.length} 題 · ${stat}` : `隨機練習 · ${stat}`;
+  const nb = document.getElementById('next-q');
+  nb.disabled = !pick;
+  nb.textContent = p.mode === 'seq' && p.pos + 1 >= p.pool.length ? '看成績' : '下一題';
+}
+
+document.getElementById('practice-card').addEventListener('click', e => {
+  const b = e.target.closest('button.opt');
+  const p = practice;
+  if (!b || !p || p.pick) return;
+  const q = byKey.get(p.cur);
+  p.pick = b.dataset.k;
+  p.answered++;
+  if (p.pick === q.answer) p.correct++;
+  else if (!p.wrong.includes(p.cur)) p.wrong.push(p.cur);
+  saveProgress();
+  renderPractice();
+});
+document.getElementById('practice-cats').addEventListener('change', updatePool);
+document.getElementById('toggle-cats').addEventListener('click', () => {
+  const boxes = document.querySelectorAll('#practice-cats input');
+  const all = [...boxes].every(b => b.checked);
+  boxes.forEach(b => { b.checked = !all; });
+  updatePool();
+});
+document.getElementById('start-practice').addEventListener('click', () =>
+  startPractice(document.querySelector('input[name=pmode]:checked').value, selectedCats()));
+document.getElementById('resume-practice').addEventListener('click', () => {
+  practice = loadProgress();
+  renderPractice();
+  window.scrollTo(0, 0);
+});
+document.getElementById('quit-practice').addEventListener('click', quitPractice);
+document.getElementById('next-q').addEventListener('click', nextQuestion);
+
 /* ---------- 切換分頁 ---------- */
 
 function showView(view) {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('browse').hidden = view !== 'browse';
   document.getElementById('exam').hidden = view !== 'exam';
+  document.getElementById('practice').hidden = view !== 'practice';
+  document.getElementById('practice-footer').hidden = !(view === 'practice' && practice && !practice.done);
   document.getElementById('browse-controls').hidden = view !== 'browse';
   document.getElementById('exam-footer').hidden = !(view === 'exam' && exam && !exam.submitted);
 }
@@ -392,6 +626,12 @@ fetch(encodeURI(SOURCE))
       const n = questions.filter(q => q.section === s.title).length;
       sel.insertAdjacentHTML('beforeend', `<option value="${esc(s.title)}">${esc(s.title)}（${n}）</option>`);
     }
+    byKey = new Map(questions.map(q => [qkey(q), q]));
+    document.getElementById('practice-cats').innerHTML = sections.map(s =>
+      `<label><input type="checkbox" value="${esc(s.title)}" checked><span>${esc(s.title)}</span>` +
+      `<span class="cnt">${questions.filter(q => q.section === s.title).length} 題</span></label>`).join('');
+    updatePool();
+    renderSetup();
     document.getElementById('exam-size').textContent = Math.min(EXAM_SIZE, questions.length);
     renderBrowse();
     document.getElementById('start-exam').disabled = questions.length === 0;
